@@ -16,7 +16,7 @@
         <h1 class="font-semibold text-5xl md:text-7xl leading-none">
           Aksel&nbsp;T. <br>Follett
         </h1>
-        <p class="mt-4 tracking-wide text-lg md:text-2xl font-medium">
+        <p class="mt-2 md:mt-4 tracking-wide text-lg md:text-2xl font-medium">
           26.&nbsp;April&nbsp;2025
         </p>
       </div>
@@ -50,7 +50,7 @@
   onBeforeUnmount(() => clearInterval(timer))
   </script>
   
-  <style>
+  <style scoped>
   /* cross‑fade with a subtle blur ------------------------------------------- */
   .xfade-enter-active,
   .xfade-leave-active {

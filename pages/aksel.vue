@@ -1,61 +1,38 @@
 <template>
   <!-- full-screen slideshow -->
-  <div class="relative h-screen w-screen overflow-hidden bg-black">
-
-    <!-- unified crossfade of blurred background + main image -->
-    <transition-group
-      name="xfade"
-      tag="div"
-      class="absolute inset-0 w-full h-full z-10"
-      @leave="onMainLeave"
-    >
-      <div
-        v-for="slide in slides"
-        :key="slide.id"
-        class="absolute inset-0 w-full h-full"
-      >
-        <!-- blurred background (phone only) -->
-        <img
-          class="absolute inset-0 w-full h-full object-cover blur-md image-accel md:hidden"
-          :src="slide.src"
-          alt="Slideshow blurred background"
-        />
-        <!-- main slideshow image -->
-        <img
-          class="absolute inset-0 w-full h-full object-contain md:object-cover md:object-center select-none image-accel"
-          :src="slide.src"
-          alt="Slideshow image"
-        />
-      </div>
-    </transition-group>
+  <div class="relative h-screen w-screen overflow-hidden">
+    <transition name="xfade">
+      <img
+        ref="imgRef"
+        :key="currentSrc"
+        :src="currentSrc"
+        :style="{ objectPosition: objectPosition }"
+        class="absolute inset-0 w-full h-full object-cover select-none"
+        alt="Slideshow image"
+        @load="calculateOverflow"
+        @touchstart="onTouchStart"
+        @touchmove="onTouchMove"
+        @touchend="onTouchEnd"
+      />
+    </transition>
 
     <!-- headline & sub-text -->
-    <div class="pointer-events-none fixed bottom-4 left-4 lg:bottom-8 lg:left-8 z-20 text-white">
+    <div class="pointer-events-none fixed bottom-4 md:bottom-8 left-4 md:left-8 z-10 text-white">
       <h1 class="font-semibold text-4xl md:text-7xl leading-none">
         {{ label }}
       </h1>
-      <p class="mt-2 sm:mt-4 tracking-wide text-base md:text-2xl font-medium">
+      <p class="mt-1 md:mt-4 tracking-wide text-base md:text-2xl font-medium">
         {{ subtext }}
       </p>
     </div>
 
     <!-- navigation buttons -->
-    <button
-      class="nav-btn nav-prev text-xs sm:text-base backdrop-blur-sm"
-      @click="prev"
-    >
-      Forrige
-    </button>
-    <button
-      class="nav-btn nav-next text-xs sm:text-base backdrop-blur-sm"
-      @click="next"
-    >
-      Neste
-    </button>
+    <button class="nav-btn nav-prev text-xs md:text-base backdrop-blur-sm" @click="prev">Forrige</button>
+    <button class="nav-btn nav-next text-xs md:text-base backdrop-blur-sm" @click="next">Neste</button>
 
-    <!-- autoplay toggle (bottom-right) -->
+    <!-- autoplay toggle (top-right) -->
     <button
-      class="nav-play text-xs sm:text-base backdrop-blur-sm"
+      class="nav-play text-xs font-semibold md:text-base backdrop-blur-sm"
       :class="autoplay ? 'bg-green-700' : ''"
       @click="togglePlay"
     >
@@ -65,181 +42,206 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
-/** Static label and subtext: */
-const label = 'Aksel T. Follett'
+/* --- static copy ------------------ */
+const label   = 'Aksel T. Follett'
 const subtext = 'Vi er stolte av vår konfirmant!'
 
-/** We have 40 images: /aksel/aksel_1.jpg … /aksel/aksel_40.jpg  */
-const COUNT = 40
+/* --- slideshow state --------------- */
+const COUNT  = 40          // aksel_1.jpg … aksel_40.jpg
+const imgIdx = ref(0)
+const currentSrc = computed(() => `/aksel/aksel_${imgIdx.value + 1}.jpg`)
 
-/** Each slide is an object: { id: number, src: string } */
-interface Slide {
-  id: number
-  src: string
-}
+/* --- image ref and overflow -------- */
+const imgRef = ref<HTMLImageElement | null>(null)
+const overflowW = ref(0)
+const overflowH = ref(0)
+const objectPosition = ref('50% 50%')
 
-const slides = ref<Slide[]>([])
-
-/** We'll store our current index in `imgIdx`. */
-let imgIdx = 0
-let slideIdCounter = 1
-
-/** Build the image path for a given index: */
-function buildSrc(index: number) {
-  return `/aksel/aksel_${index + 1}.jpg`
-}
-
-/** Preload an image before showing it. */
-function preloadImage(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const i = new Image()
-    i.onload = () => resolve()
-    i.onerror = reject
-    i.src = src
-  })
-}
-
-/** Add a new slide (for crossfade). Remove the old slide on transition end. */
-async function showSlide(index: number) {
-  const src = buildSrc(index)
-  try {
-    await preloadImage(src)
-    slides.value.push({
-      id: ++slideIdCounter,
-      src,
-    })
-  } catch (err) {
-    console.error('Failed to load image:', err)
+function calculateOverflow() {
+  if (imgRef.value) {
+    const iw = imgRef.value.naturalWidth
+    const ih = imgRef.value.naturalHeight
+    const cw = window.innerWidth
+    const ch = window.innerHeight
+    const aspectContainer = cw / ch
+    const aspectImage = iw / ih
+    let sw, sh
+    if (aspectImage > aspectContainer) {
+      // Image is wider, scale to fit height
+      sh = ch
+      sw = iw * (ch / ih)
+      overflowW.value = sw - cw
+      overflowH.value = 0
+    } else {
+      // Image is taller or equal, scale to fit width
+      sw = cw
+      sh = ih * (cw / iw)
+      overflowW.value = 0
+      overflowH.value = sh - ch
+    }
   }
 }
 
-/** Called for each leaving element in our transition-group. */
-function onMainLeave(el: Element) {
-  if (slides.value.length > 1) {
-    slides.value.shift()
+/* --- handle screen resize ---------- */
+onMounted(() => {
+  window.addEventListener('resize', calculateOverflow)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', calculateOverflow)
+})
+
+/* --- drag state -------------------- */
+const isDragging = ref(false)
+const startX = ref(0)
+const startY = ref(0)
+const initialOffsetX = ref(0)
+const initialOffsetY = ref(0)
+
+function onTouchStart(event: TouchEvent) {
+  if (event.touches.length === 1) {
+    isDragging.value = true
+    startX.value = event.touches[0].clientX
+    startY.value = event.touches[0].clientY
+    const [px, py] = objectPosition.value.split(' ').map(p => parseFloat(p))
+    initialOffsetX.value = (px / 100) * overflowW.value
+    initialOffsetY.value = (py / 100) * overflowH.value
   }
 }
 
-/** Initialize by showing the first image. */
-showSlide(imgIdx)
+function onTouchMove(event: TouchEvent) {
+  if (isDragging.value && event.touches.length === 1) {
+    const currentX = event.touches[0].clientX
+    const currentY = event.touches[0].clientY
+    const dx = currentX - startX.value
+    const dy = currentY - startY.value
 
-/** Next & Prev */
-async function next() {
-  imgIdx = (imgIdx + 1) % COUNT
-  await showSlide(imgIdx)
-}
-async function prev() {
-  imgIdx = (imgIdx - 1 + COUNT) % COUNT
-  await showSlide(imgIdx)
+    // Calculate new offsets
+    let newOffsetX = initialOffsetX.value - dx
+    let newOffsetY = initialOffsetY.value - dy
+
+    // Clamp offsets
+    newOffsetX = Math.max(0, Math.min(newOffsetX, overflowW.value))
+    newOffsetY = Math.max(0, Math.min(newOffsetY, overflowH.value))
+
+    // Calculate new percentages
+    const newPx = overflowW.value > 0 ? (newOffsetX / overflowW.value) * 100 : 50
+    const newPy = overflowH.value > 0 ? (newOffsetY / overflowH.value) * 100 : 50
+
+    objectPosition.value = `${newPx}% ${newPy}%`
+  }
 }
 
-/** Autoplay */
+function onTouchEnd() {
+  isDragging.value = false
+}
+
+/* --- navigation -------------------- */
+function next() {
+  imgIdx.value = (imgIdx.value + 1) % COUNT
+}
+
+function prev() {
+  imgIdx.value = (imgIdx.value - 1 + COUNT) % COUNT
+}
+
+/* --- autoplay ---------------------- */
 const autoplay = ref(false)
 let timer: number | null = null
 
 function startTimer() {
-  timer = window.setInterval(next, 5000)
+  timer = window.setInterval(next, 5000)   // 5-second delay
 }
+
 function stopTimer() {
   if (timer !== null) {
     clearInterval(timer)
     timer = null
   }
 }
+
 function togglePlay() {
   autoplay.value = !autoplay.value
 }
 
-watch(autoplay, (playing) => {
+watch(autoplay, playing => {
   playing ? startTimer() : stopTimer()
 })
 
 onUnmounted(stopTimer)
+
+watch(currentSrc, () => {
+  objectPosition.value = '50% 50%'
+})
 </script>
 
-<style scoped>
-/* hardware-acceleration helper for images */
-.image-accel {
-  will-change: opacity, transform;
-  backface-visibility: hidden;
-  transform: translateZ(0);
-}
-
-/* single crossfade transition for both blurred bg + main image,
-   but with no animated blur—only opacity */
+<style>
+/* cross-fade (same as toppturer.vue) */
 .xfade-enter-active,
 .xfade-leave-active {
-  transition: opacity 1.5s ease;
-  position: absolute;
+  transition: opacity 1.5s ease, filter 1.5s ease;
 }
 .xfade-enter-from,
 .xfade-leave-to {
   opacity: 0;
+  filter: blur(10px);
 }
 .xfade-enter-to,
 .xfade-leave-from {
   opacity: 1;
+  filter: blur(0);
 }
 
-/* navigation buttons ------------------------------------------------------ */
+/* navigation buttons */
 .nav-btn {
   position: fixed;
-  z-index: 30;
-  padding: 0.5rem 1rem;
+  z-index: 20;
+  padding: 0.5rem 1.25rem;
   font-weight: 600;
   color: #fff;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0,0,0,.30);
   border-radius: 0.375rem;
-  transition: background 0.15s ease;
+  transition: background .15s ease;
   -webkit-tap-highlight-color: transparent;
 }
-.nav-btn:hover {
-  background: rgba(0, 0, 0, 0.5);
-}
+
+/* prev / next (vertically centred) */
 .nav-prev,
 .nav-next {
   top: 50%;
   transform: translateY(-50%);
 }
-.nav-prev {
-  left: 1rem;
-}
-.nav-next {
-  right: 1rem;
-}
-@media (min-width: 768px) {
-  .nav-prev {
-    left: 2rem;
-  }
-  .nav-next {
-    right: 2rem;
-  }
-}
+.nav-prev { left: 1rem; }
+.nav-next { right: 1rem; }
 
-/* autoplay toggle (bottom-right) ------------------------------------------ */
+/* autoplay toggle (bottom-right) */
 .nav-play {
   position: fixed !important;
   bottom: 1rem;
   right: 1rem;
-  padding: 0.5rem 0.75rem;
-  font-weight: 600;
+  /* basic button look */
+  padding: 0.75rem 1rem;
   line-height: 1;
   color: #fff;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0,0,0,.30);
   border-radius: 0.375rem;
   backdrop-filter: blur(4px);
   white-space: nowrap;
   display: inline-block;
-  transition: background 0.15s ease;
-  z-index: 40;
-  pointer-events: auto;
+  height: auto;
+  width: auto;
+  transition: background .15s ease;
 }
 .nav-play:hover {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0,0,0,.50);
 }
-.bg-green-700 {
-  background-color: #15803d !important;
+
+.nav-btn:hover { background: rgba(0,0,0,.50); }
+
+@media (min-width: 768px) {
+  .nav-prev { left: 2rem; }
+  .nav-next { right: 2rem; }
 }
 </style>
