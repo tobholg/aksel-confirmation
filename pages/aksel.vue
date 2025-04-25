@@ -4,9 +4,10 @@
     <!-- blurred background (phone only) -->
     <transition name="bgfade">
       <img
-        :key="currentSrc + '-blur'"
-        :src="currentSrc"
-        class="absolute inset-0 w-full h-full object-cover blur-md md:hidden select-none z-0"
+        v-if="displayedSrc"
+        :key="displayedSrc + '-blur'"
+        :src="displayedSrc"
+        class="absolute inset-0 w-full h-full object-cover blur-md md:hidden select-none z-0 image-accel"
         alt="Slideshow blurred background"
       />
     </transition>
@@ -14,9 +15,10 @@
     <!-- main slideshow image -->
     <transition name="xfade">
       <img
-        :key="currentSrc"
-        :src="currentSrc"
-        class="absolute inset-0 w-full h-full object-contain md:object-cover md:object-center select-none z-10"
+        v-if="displayedSrc"
+        :key="displayedSrc"
+        :src="displayedSrc"
+        class="absolute inset-0 w-full h-full object-contain md:object-cover md:object-center select-none z-10 image-accel"
         alt="Slideshow image"
       />
     </transition>
@@ -32,16 +34,16 @@
     </div>
 
     <!-- navigation buttons -->
-    <button class="nav-btn nav-prev text-sm sm:text-base backdrop-blur-sm" @click="prev">
+    <button class="nav-btn nav-prev text-xs sm:text-base backdrop-blur-sm" @click="prev">
       Forrige
     </button>
-    <button class="nav-btn nav-next text-sm sm:text-base backdrop-blur-sm" @click="next">
+    <button class="nav-btn nav-next text-xs sm:text-base backdrop-blur-sm" @click="next">
       Neste
     </button>
 
     <!-- autoplay toggle (bottom-right) -->
     <button
-      class="nav-play text-base backdrop-blur-sm"
+      class="nav-play text-xs sm:text-base backdrop-blur-sm"
       :class="autoplay ? 'bg-green-700' : ''"
       @click="togglePlay"
     >
@@ -57,17 +59,67 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 const label   = 'Aksel T. Follett'
 const subtext = 'Vi er stolte av vår konfirmant!'
 
-/* --- slideshow state ----------------------------------------------------- */
-const COUNT  = 40 // aksel_1.jpg … aksel_40.jpg
+/* --- total images -------------------------------------------------------- */
+const COUNT = 40 // e.g. aksel_1.jpg … aksel_40.jpg
+
+/**
+ * displayedSrc = what's currently visible on screen
+ * nextSrc = next image path to preload before showing
+ */
+const displayedSrc = ref<string | null>(null)
 const imgIdx = ref(0)
-const currentSrc = computed(() => `/aksel/aksel_${imgIdx.value + 1}.jpg`)
+
+/* --- utility: preload an image ------------------------------------------ */
+async function preloadImage (src: string) {
+  return new Promise<void>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve()
+    image.onerror = reject
+    image.src = src
+  })
+}
+
+/**
+ * Initialize the first loaded image on mount.
+ * We preload akse_1.jpg so we don't see a blank/flicker initially.
+ */
+(async () => {
+  const first = `/aksel/aksel_${imgIdx.value + 1}.jpg`
+  await preloadImage(first).catch(() => {})
+  displayedSrc.value = first
+})()
+
+/* --- helpers to get next/prev index -------------------------------------- */
+function getNextIndex () {
+  return (imgIdx.value + 1) % COUNT
+}
+function getPrevIndex () {
+  return (imgIdx.value - 1 + COUNT) % COUNT
+}
 
 /* --- navigation ---------------------------------------------------------- */
-function next () {
-  imgIdx.value = (imgIdx.value + 1) % COUNT
+async function next () {
+  const newIndex = getNextIndex()
+  const newSrc = `/aksel/aksel_${newIndex + 1}.jpg`
+  try {
+    await preloadImage(newSrc)
+    imgIdx.value = newIndex
+    displayedSrc.value = newSrc
+  } catch (e) {
+    console.error('Failed to load next image:', e)
+  }
 }
-function prev () {
-  imgIdx.value = (imgIdx.value - 1 + COUNT) % COUNT
+
+async function prev () {
+  const newIndex = getPrevIndex()
+  const newSrc = `/aksel/aksel_${newIndex + 1}.jpg`
+  try {
+    await preloadImage(newSrc)
+    imgIdx.value = newIndex
+    displayedSrc.value = newSrc
+  } catch (e) {
+    console.error('Failed to load prev image:', e)
+  }
 }
 
 /* --- autoplay ------------------------------------------------------------ */
@@ -75,7 +127,9 @@ const autoplay = ref(false)
 let timer: number | null = null
 
 function startTimer () {
-  timer = window.setInterval(next, 5000)
+  timer = window.setInterval(() => {
+    next()
+  }, 5000)
 }
 function stopTimer () {
   if (timer !== null) {
@@ -87,14 +141,21 @@ function togglePlay () {
   autoplay.value = !autoplay.value
 }
 
-watch(autoplay, playing => {
+watch(autoplay, (playing) => {
   playing ? startTimer() : stopTimer()
 })
 
 onUnmounted(stopTimer)
 </script>
 
-<style>
+<style scoped>
+/* hardware-acceleration helper for images */
+.image-accel {
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
 /* cross-fade transition for main image ------------------------------------ */
 .xfade-enter-active,
 .xfade-leave-active {
@@ -129,7 +190,7 @@ onUnmounted(stopTimer)
 .nav-btn {
   position: fixed;
   z-index: 20;
-  padding: 0.5rem 1.25rem;
+  padding: 0.5rem 1rem;
   font-weight: 600;
   color: #fff;
   background: rgba(0, 0, 0, 0.3);
@@ -168,7 +229,7 @@ onUnmounted(stopTimer)
   bottom: 1rem;
   right: 1rem;
   padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  font-weight: 600;
   line-height: 1;
   color: #fff;
   background: rgba(0, 0, 0, 0.3);
@@ -184,5 +245,8 @@ onUnmounted(stopTimer)
 }
 .nav-play:hover {
   background: rgba(0, 0, 0, 0.5);
+}
+.bg-green-700 {
+  background-color: #15803d !important;
 }
 </style>

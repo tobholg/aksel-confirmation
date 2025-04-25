@@ -4,9 +4,10 @@
     <!-- blurred background (phone only) -->
     <transition name="bgfade">
       <img
-        :key="currentSrc + '-blur'"
-        :src="currentSrc"
-        class="absolute inset-0 w-full h-full object-cover blur-md md:hidden select-none z-0"
+        v-if="displayedSrc"
+        :key="displayedSrc + '-blur'"
+        :src="displayedSrc"
+        class="absolute inset-0 w-full h-full object-cover blur-md md:hidden select-none z-0 image-accel"
         alt="Slideshow blurred background"
       />
     </transition>
@@ -14,9 +15,10 @@
     <!-- main slideshow image -->
     <transition name="xfade">
       <img
-        :key="currentSrc"
-        :src="currentSrc"
-        class="absolute inset-0 w-full h-full object-contain md:object-cover md:object-center select-none z-10"
+        v-if="displayedSrc"
+        :key="displayedSrc"
+        :src="displayedSrc"
+        class="absolute inset-0 w-full h-full object-contain md:object-cover md:object-center select-none z-10 image-accel"
         alt="Slideshow image"
       />
     </transition>
@@ -24,22 +26,22 @@
     <!-- headline & sub-text -->
     <div class="pointer-events-none fixed bottom-4 left-4 lg:bottom-8 lg:left-8 z-10 text-white">
       <h1 class="font-semibold text-4xl md:text-7xl leading-none">
-        {{ currentCategory.label }}
+        {{ displayedCategory.label }}
       </h1>
       <p class="mt-2 sm:mt-4 tracking-wide text-base md:text-2xl font-medium">
-        {{ currentCategory.subtext }}
+        {{ displayedCategory.subtext }}
       </p>
     </div>
 
     <!-- navigation buttons -->
     <button
-      class="nav-btn nav-prev text-sm sm:text-base backdrop-blur-sm"
+      class="nav-btn nav-prev text-xs sm:text-base backdrop-blur-sm"
       @click="prev"
     >
       Forrige
     </button>
     <button
-      class="nav-btn nav-next text-sm sm:text-base backdrop-blur-sm"
+      class="nav-btn nav-next text-xs sm:text-base backdrop-blur-sm"
       @click="next"
     >
       Neste
@@ -47,7 +49,7 @@
 
     <!-- autoplay toggle (bottom-right) -->
     <button
-      class="nav-play text-base backdrop-blur-sm"
+      class="nav-play text-xs sm:text-base backdrop-blur-sm"
       :class="autoplay ? 'bg-green-700' : ''"
       @click="togglePlay"
     >
@@ -75,30 +77,87 @@ const categories: Category[] = [
   { slug: 'map',     label: 'Oversikt',count: 1,  subtext: '19 topper.' },
 ]
 
-/* slideshow state */
+/* track the "real" category & image index */
 const catIdx = ref(0)
 const imgIdx = ref(0)
 
-const currentCategory = computed(() => categories[catIdx.value])
-const currentSrc = computed(() => {
-  return `/${currentCategory.value.slug}/${currentCategory.value.slug}_${imgIdx.value + 1}.jpg`
-})
+/* what's currently displayed in the UI */
+const displayedSrc = ref<string | null>(null)
+const displayedCategory = ref<Category>(categories[0])
 
-/* navigation */
-function next() {
-  if (imgIdx.value + 1 < currentCategory.value.count) {
-    imgIdx.value++
-  } else {
-    catIdx.value = (catIdx.value + 1) % categories.length
-    imgIdx.value = 0
+/* A utility function to build the actual path for an image */
+function getSrcFor(catIndex: number, imageIndex: number) {
+  const c = categories[catIndex]
+  return `/${c.slug}/${c.slug}_${imageIndex + 1}.jpg`
+}
+
+/* preload helper */
+function preloadImage (src: string) {
+  return new Promise<void>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve()
+    image.onerror = reject
+    image.src = src
+  })
+}
+
+/* set the initial image & category when page loads */
+;(async () => {
+  const startSrc = getSrcFor(catIdx.value, imgIdx.value)
+  try {
+    await preloadImage(startSrc)
+  } catch(e) {
+    console.error('Failed to load initial image:', e)
+  }
+  displayedSrc.value = startSrc
+  displayedCategory.value = categories[catIdx.value]
+})()
+
+async function next() {
+  const c = categories[catIdx.value]
+  let nextCatIndex = catIdx.value
+  let nextImgIndex = imgIdx.value + 1
+
+  // If we're at the end of the current category's images, move to next category
+  if (nextImgIndex >= c.count) {
+    nextCatIndex = (catIdx.value + 1) % categories.length
+    nextImgIndex = 0
+  }
+
+  const newSrc = getSrcFor(nextCatIndex, nextImgIndex)
+
+  try {
+    // preload the next image
+    await preloadImage(newSrc)
+    // once loaded, update the displayed data
+    catIdx.value = nextCatIndex
+    imgIdx.value = nextImgIndex
+    displayedSrc.value = newSrc
+    displayedCategory.value = categories[nextCatIndex]
+  } catch (e) {
+    console.error('Failed to load next image:', e)
   }
 }
-function prev() {
-  if (imgIdx.value > 0) {
-    imgIdx.value--
-  } else {
-    catIdx.value = (catIdx.value - 1 + categories.length) % categories.length
-    imgIdx.value = categories[catIdx.value].count - 1
+
+async function prev() {
+  let newCatIndex = catIdx.value
+  let newImgIndex = imgIdx.value - 1
+
+  if (newImgIndex < 0) {
+    // move back one category
+    newCatIndex = (catIdx.value - 1 + categories.length) % categories.length
+    newImgIndex = categories[newCatIndex].count - 1
+  }
+  const newSrc = getSrcFor(newCatIndex, newImgIndex)
+
+  try {
+    await preloadImage(newSrc)
+    catIdx.value = newCatIndex
+    imgIdx.value = newImgIndex
+    displayedSrc.value = newSrc
+    displayedCategory.value = categories[newCatIndex]
+  } catch (e) {
+    console.error('Failed to load prev image:', e)
   }
 }
 
@@ -119,14 +178,21 @@ function togglePlay() {
   autoplay.value = !autoplay.value
 }
 
-watch(autoplay, (playing) => {
+watch(autoplay, playing => {
   playing ? startTimer() : stopTimer()
 })
 
 onUnmounted(stopTimer)
 </script>
 
-<style>
+<style scoped>
+/* hardware-acceleration for images */
+.image-accel {
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
 /* cross-fade transition for main image ------------------------------------ */
 .xfade-enter-active,
 .xfade-leave-active {
@@ -161,7 +227,7 @@ onUnmounted(stopTimer)
 .nav-btn {
   position: fixed;
   z-index: 20;
-  padding: 0.5rem 1.25rem;
+  padding: 0.5rem 1rem;
   font-weight: 600;
   color: #fff;
   background: rgba(0, 0, 0, 0.3);
@@ -200,7 +266,6 @@ onUnmounted(stopTimer)
   bottom: 1rem;
   right: 1rem;
   padding: 0.75rem 1rem;
-  font-size: 0.875rem;
   line-height: 1;
   color: #fff;
   background: rgba(0, 0, 0, 0.3);
@@ -216,5 +281,8 @@ onUnmounted(stopTimer)
 }
 .nav-play:hover {
   background: rgba(0, 0, 0, 0.5);
+}
+.bg-green-700 {
+  background-color: #15803d !important;
 }
 </style>
