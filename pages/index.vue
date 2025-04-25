@@ -12,9 +12,9 @@
       </transition>
   
       <!-- fixed text block ---------------------------------------------------- -->
-      <div class="pointer-events-none fixed bottom-8 left-8 z-10 text-white">
-        <h1 class="font-semibold text-6xl md:text-7xl leading-none">
-          Aksel&nbsp;T. Follett
+      <div class="pointer-events-none fixed bottom-4 left-4 sm:bottom-8 sm:left-8 z-10 text-white">
+        <h1 class="font-semibold text-5xl md:text-7xl leading-none">
+          Aksel&nbsp;T. <br>Follett
         </h1>
         <p class="mt-4 tracking-wide text-lg md:text-2xl font-medium">
           26.&nbsp;April&nbsp;2025
