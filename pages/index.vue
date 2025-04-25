@@ -1,27 +1,33 @@
 <template>
-    <!-- full‑screen slideshow ------------------------------------------------- -->
-    <div class="relative h-screen w-screen overflow-hidden">
-      <!-- cross‑fade / blur transition -->
-      <transition name="xfade">
-        <img
-          :key="currentSrc"
-          :src="currentSrc"
-          class="absolute inset-0 w-full h-full object-cover object-top select-none"
-          alt="Slideshow image"
-        />
-      </transition>
-  
-      <!-- fixed text block ---------------------------------------------------- -->
-      <div class="pointer-events-none fixed bottom-4 left-4 sm:bottom-8 sm:left-8 z-10 text-white">
-        <h1 class="font-semibold text-5xl md:text-7xl leading-none">
-          Aksel&nbsp;T. <br>Follett
-        </h1>
-        <p class="mt-2 md:mt-4 tracking-wide text-lg md:text-2xl font-medium">
-          26.&nbsp;April&nbsp;2025
-        </p>
-      </div>
+  <!-- full-screen slideshow ------------------------------------------------- -->
+  <div class="relative h-screen w-screen overflow-hidden bg-black">
+    <!-- cross-fade / blur transition -->
+    <transition name="xfade">
+      <img
+        :key="currentSrc"
+        :src="currentSrc"
+        class="absolute inset-0 w-full h-full object-cover object-top select-none"
+        alt="Slideshow image"
+      />
+    </transition>
+
+    <!-- gradient overlay (bottom 1/4 fades from black@20% to transparent) -->
+    <div
+      class="absolute bottom-0 left-0 w-full h-1/3 pointer-events-none
+             bg-gradient-to-t from-black/80 to-transparent"
+    ></div>
+
+    <!-- fixed text block ---------------------------------------------------- -->
+    <div class="pointer-events-none fixed bottom-4 left-4 sm:bottom-8 sm:left-8 z-10 text-white">
+      <h1 class="font-semibold text-5xl md:text-7xl leading-none">
+        Aksel&nbsp;T. <br>Follett
+      </h1>
+      <p class="mt-2 md:mt-4 tracking-wide text-lg md:text-2xl font-medium">
+        26.&nbsp;April&nbsp;2025
+      </p>
     </div>
-  </template>
+  </div>
+</template>
   
   <script setup lang="ts">
   import { ref, computed, onMounted, onBeforeUnmount } from 'vue'

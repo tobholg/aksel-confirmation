@@ -9,3 +9,9 @@
 <script setup lang="ts">
 import Navbar from '~/components/NavBar.vue'
 </script>
+
+<style>
+body {
+  background-color: 'black';
+}
+</style>

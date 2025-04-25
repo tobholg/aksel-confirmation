@@ -1,12 +1,12 @@
 <template>
   <!-- full-screen slideshow -->
-  <div class="relative h-screen w-screen overflow-hidden">
+  <div class="relative h-screen w-screen overflow-hidden bg-black">
     <transition name="xfade">
       <img
         ref="imgRef"
         :key="currentSrc"
         :src="currentSrc"
-        :style="{ objectPosition: objectPosition }"
+        :style="{ objectPosition }"
         class="absolute inset-0 w-full h-full object-cover select-none"
         alt="Slideshow image"
         @load="calculateOverflow"
@@ -15,6 +15,12 @@
         @touchend="onTouchEnd"
       />
     </transition>
+
+    <!-- gradient overlay (bottom 1/3 fades from black@80 % to transparent) -->
+    <div
+      class="absolute bottom-0 left-0 w-full h-1/3 pointer-events-none
+             bg-gradient-to-t from-black/80 to-transparent"
+    ></div>
 
     <!-- headline & sub-text -->
     <div class="pointer-events-none fixed bottom-4 md:bottom-8 left-4 md:left-8 z-10 text-white">
@@ -30,7 +36,7 @@
     <button class="nav-btn nav-prev text-xs md:text-base backdrop-blur-sm" @click="prev">Forrige</button>
     <button class="nav-btn nav-next text-xs md:text-base backdrop-blur-sm" @click="next">Neste</button>
 
-    <!-- autoplay toggle (top-right) -->
+    <!-- autoplay toggle (bottom-right) -->
     <button
       class="nav-play text-xs font-semibold md:text-base backdrop-blur-sm"
       :class="autoplay ? 'bg-green-700' : ''"
@@ -42,58 +48,57 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, defineProps } from 'vue'
 
-/* --- static copy ------------------ */
+/* --- props & static copy -------------------------------------------------- */
+const props = defineProps<{ topBias?: number }>()       // 0 = top, 50 = centred
+const TOP_BIAS_PCT = props.topBias ?? 40                // default = 25 %
+
 const label   = 'Aksel T. Follett'
 const subtext = 'Vi er stolte av vår konfirmant!'
 
-/* --- slideshow state --------------- */
-const COUNT  = 40          // aksel_1.jpg … aksel_40.jpg
+/* --- slideshow state ------------------------------------------------------ */
+const COUNT  = 38                         // aksel_1.jpg … aksel_40.jpg
 const imgIdx = ref(0)
 const currentSrc = computed(() => `/aksel/aksel_${imgIdx.value + 1}.jpg`)
 
-/* --- image ref and overflow -------- */
+/* --- image ref and overflow ---------------------------------------------- */
 const imgRef = ref<HTMLImageElement | null>(null)
 const overflowW = ref(0)
 const overflowH = ref(0)
-const objectPosition = ref('50% 50%')
+/* 👉 seed with the vertical bias */
+const objectPosition = ref(`50% ${TOP_BIAS_PCT}%`)
 
 function calculateOverflow() {
-  if (imgRef.value) {
-    const iw = imgRef.value.naturalWidth
-    const ih = imgRef.value.naturalHeight
-    const cw = window.innerWidth
-    const ch = window.innerHeight
-    const aspectContainer = cw / ch
-    const aspectImage = iw / ih
-    let sw, sh
-    if (aspectImage > aspectContainer) {
-      // Image is wider, scale to fit height
-      sh = ch
-      sw = iw * (ch / ih)
-      overflowW.value = sw - cw
-      overflowH.value = 0
-    } else {
-      // Image is taller or equal, scale to fit width
-      sw = cw
-      sh = ih * (cw / iw)
-      overflowW.value = 0
-      overflowH.value = sh - ch
-    }
+  if (!imgRef.value) return
+  const iw = imgRef.value.naturalWidth
+  const ih = imgRef.value.naturalHeight
+  const cw = window.innerWidth
+  const ch = window.innerHeight
+  const aspectContainer = cw / ch
+  const aspectImage = iw / ih
+
+  let sw, sh
+  if (aspectImage > aspectContainer) {
+    // Image is wider, scale to fit height
+    sh = ch
+    sw = iw * (ch / ih)
+    overflowW.value = sw - cw
+    overflowH.value = 0
+  } else {
+    // Image is taller or equal, scale to fit width
+    sw = cw
+    sh = ih * (cw / iw)
+    overflowW.value = 0
+    overflowH.value = sh - ch
   }
 }
 
-/* --- handle screen resize ---------- */
-onMounted(() => {
-  window.addEventListener('resize', calculateOverflow)
-})
+/* --- handle screen resize ------------------------------------------------- */
+onMounted(() => window.addEventListener('resize', calculateOverflow))
+onUnmounted(() => window.removeEventListener('resize', calculateOverflow))
 
-onUnmounted(() => {
-  window.removeEventListener('resize', calculateOverflow)
-})
-
-/* --- drag state -------------------- */
+/* --- drag state ----------------------------------------------------------- */
 const isDragging = ref(false)
 const startX = ref(0)
 const startY = ref(0)
@@ -101,44 +106,42 @@ const initialOffsetX = ref(0)
 const initialOffsetY = ref(0)
 
 function onTouchStart(event: TouchEvent) {
-  if (event.touches.length === 1) {
-    isDragging.value = true
-    startX.value = event.touches[0].clientX
-    startY.value = event.touches[0].clientY
-    const [px, py] = objectPosition.value.split(' ').map(p => parseFloat(p))
-    initialOffsetX.value = (px / 100) * overflowW.value
-    initialOffsetY.value = (py / 100) * overflowH.value
-  }
+  if (event.touches.length !== 1) return
+  isDragging.value = true
+  startX.value = event.touches[0].clientX
+  startY.value = event.touches[0].clientY
+  const [px, py] = objectPosition.value.split(' ').map(p => parseFloat(p))
+  initialOffsetX.value = (px / 100) * overflowW.value
+  initialOffsetY.value = (py / 100) * overflowH.value
 }
 
 function onTouchMove(event: TouchEvent) {
-  if (isDragging.value && event.touches.length === 1) {
-    const currentX = event.touches[0].clientX
-    const currentY = event.touches[0].clientY
-    const dx = currentX - startX.value
-    const dy = currentY - startY.value
+  if (!isDragging.value || event.touches.length !== 1) return
+  const currentX = event.touches[0].clientX
+  const currentY = event.touches[0].clientY
+  const dx = currentX - startX.value
+  const dy = currentY - startY.value
 
-    // Calculate new offsets
-    let newOffsetX = initialOffsetX.value - dx
-    let newOffsetY = initialOffsetY.value - dy
+  // Calculate new offsets
+  let newOffsetX = initialOffsetX.value - dx
+  let newOffsetY = initialOffsetY.value - dy
 
-    // Clamp offsets
-    newOffsetX = Math.max(0, Math.min(newOffsetX, overflowW.value))
-    newOffsetY = Math.max(0, Math.min(newOffsetY, overflowH.value))
+  // Clamp offsets
+  newOffsetX = Math.max(0, Math.min(newOffsetX, overflowW.value))
+  newOffsetY = Math.max(0, Math.min(newOffsetY, overflowH.value))
 
-    // Calculate new percentages
-    const newPx = overflowW.value > 0 ? (newOffsetX / overflowW.value) * 100 : 50
-    const newPy = overflowH.value > 0 ? (newOffsetY / overflowH.value) * 100 : 50
+  // Calculate new percentages
+  const newPx = overflowW.value ? (newOffsetX / overflowW.value) * 100 : 50
+  const newPy = overflowH.value ? (newOffsetY / overflowH.value) * 100 : TOP_BIAS_PCT
 
-    objectPosition.value = `${newPx}% ${newPy}%`
-  }
+  objectPosition.value = `${newPx}% ${newPy}%`
 }
 
 function onTouchEnd() {
   isDragging.value = false
 }
 
-/* --- navigation -------------------- */
+/* --- navigation ----------------------------------------------------------- */
 function next() {
   imgIdx.value = (imgIdx.value + 1) % COUNT
 }
@@ -147,7 +150,7 @@ function prev() {
   imgIdx.value = (imgIdx.value - 1 + COUNT) % COUNT
 }
 
-/* --- autoplay ---------------------- */
+/* --- autoplay ------------------------------------------------------------- */
 const autoplay = ref(false)
 let timer: number | null = null
 
@@ -166,18 +169,16 @@ function togglePlay() {
   autoplay.value = !autoplay.value
 }
 
-watch(autoplay, playing => {
-  playing ? startTimer() : stopTimer()
-})
-
+watch(autoplay, playing => (playing ? startTimer() : stopTimer()))
 onUnmounted(stopTimer)
 
+/* --- reset bias on every new slide --------------------------------------- */
 watch(currentSrc, () => {
-  objectPosition.value = '50% 50%'
+  objectPosition.value = `50% ${TOP_BIAS_PCT}%`
 })
 </script>
 
-<style>
+<style scoped>
 /* cross-fade (same as toppturer.vue) */
 .xfade-enter-active,
 .xfade-leave-active {
@@ -207,7 +208,6 @@ watch(currentSrc, () => {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* prev / next (vertically centred) */
 .nav-prev,
 .nav-next {
   top: 50%;
@@ -221,7 +221,6 @@ watch(currentSrc, () => {
   position: fixed !important;
   bottom: 1rem;
   right: 1rem;
-  /* basic button look */
   padding: 0.75rem 1rem;
   line-height: 1;
   color: #fff;
@@ -229,14 +228,9 @@ watch(currentSrc, () => {
   border-radius: 0.375rem;
   backdrop-filter: blur(4px);
   white-space: nowrap;
-  display: inline-block;
-  height: auto;
-  width: auto;
   transition: background .15s ease;
 }
-.nav-play:hover {
-  background: rgba(0,0,0,.50);
-}
+.nav-play:hover { background: rgba(0,0,0,.50); }
 
 .nav-btn:hover { background: rgba(0,0,0,.50); }
 

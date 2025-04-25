@@ -1,6 +1,5 @@
 <template>
-  <!-- full-screen slideshow -->
-  <div class="relative h-screen w-screen overflow-hidden">
+  <div class="relative h-screen w-screen overflow-hidden bg-black">
     <transition name="xfade">
       <img
         ref="imgRef"
@@ -15,6 +14,12 @@
         @touchend="onTouchEnd"
       />
     </transition>
+
+    <!-- gradient overlay -->
+    <div
+      class="absolute bottom-0 left-0 w-full h-1/3 pointer-events-none
+             bg-gradient-to-t from-black/80 to-transparent"
+    ></div>
 
     <!-- headline & sub-text -->
     <div class="pointer-events-none fixed bottom-4 md:bottom-8 left-4 md:left-8 z-10 text-white">
@@ -44,10 +49,11 @@ interface Category {
 
 const categories: Category[] = [
   { slug: 'autumn',  label: 'Høst',   count: 3,  subtext: 'Eventyret starter.' },
-  { slug: 'winter',  label: 'Vinter', count: 5,  subtext: 'Korte dager, lange turer.' },
-  { slug: 'spring',  label: 'Vår',    count: 11, subtext: 'Naturen våkner.' },
+  { slug: 'winter',  label: 'Vinter', count: 4,  subtext: 'Korte dager, lange turer.' },
+  { slug: 'spring',  label: 'Vår',    count: 9, subtext: 'Naturen våkner.' },
   { slug: 'highest', label: 'Høyest', count: 1,  subtext: 'Det aller høyeste punktet.' },
   { slug: 'lowest',  label: 'Lavest', count: 1,  subtext: 'Og ned igjen.' },
+  { slug: 'last',    label: 'Siste tur', count: 3,  subtext: 'Og kanskje den beste.' },
   { slug: 'map',     label: 'Oversikt',   count: 1,  subtext: '19 topper.' }
 ]
 

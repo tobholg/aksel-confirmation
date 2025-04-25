@@ -62,6 +62,16 @@
               Aksel
             </NuxtLink>
           </li>
+
+          <li>
+            <NuxtLink
+              to="/hmm"
+              class="text-xl md:text-2xl font-semibold text-white hover:text-neutral-400 transition"
+              @click="close"
+            >
+              🐸
+            </NuxtLink>
+          </li>
         </ul>
       </div>
     </transition>
