@@ -58,7 +58,7 @@ const label   = 'Aksel T. Follett'
 const subtext = 'Vi er stolte av vår konfirmant!'
 
 /* --- slideshow state ------------------------------------------------------ */
-const COUNT  = 38                         // aksel_1.jpg … aksel_40.jpg
+const COUNT  = 31                         // aksel_1.jpg … aksel_40.jpg
 const imgIdx = ref(0)
 const currentSrc = computed(() => `/aksel/aksel_${imgIdx.value + 1}.jpg`)
 
