@@ -1,26 +1,27 @@
 <template>
   <!-- full-screen slideshow -->
   <div class="relative h-screen w-screen overflow-hidden bg-black">
-    <!-- blurred background (phone only) -->
-    <transition name="bgfade">
-      <img
-        v-if="displayedSrc"
-        :key="displayedSrc + '-blur'"
-        :src="displayedSrc"
-        class="absolute inset-0 w-full h-full object-cover blur-md md:hidden select-none z-0 image-accel"
-        alt="Slideshow blurred background"
-      />
-    </transition>
-
-    <!-- main slideshow image -->
-    <transition name="xfade">
-      <img
+    <!-- Single transition container with both images -->
+    <transition name="xfade" mode="in-out">
+      <div
         v-if="displayedSrc"
         :key="displayedSrc"
-        :src="displayedSrc"
-        class="absolute inset-0 w-full h-full object-contain md:object-cover md:object-center select-none z-10 image-accel"
-        alt="Slideshow image"
-      />
+        class="absolute inset-0 w-full h-full z-10"
+      >
+        <!-- blurred background (phone only) -->
+        <img
+          class="absolute inset-0 w-full h-full object-cover blur-md md:hidden select-none image-accel"
+          :src="displayedSrc"
+          alt="Slideshow blurred background"
+        />
+
+        <!-- main slideshow image (always present) -->
+        <img
+          class="absolute inset-0 w-full h-full object-contain md:object-cover md:object-center select-none image-accel"
+          :src="displayedSrc"
+          alt="Slideshow image"
+        />
+      </div>
     </transition>
 
     <!-- headline & sub-text -->
@@ -59,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 
 interface Category {
   slug: string
@@ -77,21 +78,17 @@ const categories: Category[] = [
   { slug: 'map',     label: 'Oversikt',count: 1,  subtext: '19 topper.' },
 ]
 
-/* track the "real" category & image index */
 const catIdx = ref(0)
 const imgIdx = ref(0)
 
-/* what's currently displayed in the UI */
 const displayedSrc = ref<string | null>(null)
 const displayedCategory = ref<Category>(categories[0])
 
-/* A utility function to build the actual path for an image */
 function getSrcFor(catIndex: number, imageIndex: number) {
   const c = categories[catIndex]
   return `/${c.slug}/${c.slug}_${imageIndex + 1}.jpg`
 }
 
-/* preload helper */
 function preloadImage (src: string) {
   return new Promise<void>((resolve, reject) => {
     const image = new Image()
@@ -101,7 +98,7 @@ function preloadImage (src: string) {
   })
 }
 
-/* set the initial image & category when page loads */
+// Initial image & category
 ;(async () => {
   const startSrc = getSrcFor(catIdx.value, imgIdx.value)
   try {
@@ -118,18 +115,14 @@ async function next() {
   let nextCatIndex = catIdx.value
   let nextImgIndex = imgIdx.value + 1
 
-  // If we're at the end of the current category's images, move to next category
   if (nextImgIndex >= c.count) {
     nextCatIndex = (catIdx.value + 1) % categories.length
     nextImgIndex = 0
   }
-
   const newSrc = getSrcFor(nextCatIndex, nextImgIndex)
 
   try {
-    // preload the next image
     await preloadImage(newSrc)
-    // once loaded, update the displayed data
     catIdx.value = nextCatIndex
     imgIdx.value = nextImgIndex
     displayedSrc.value = newSrc
@@ -144,7 +137,6 @@ async function prev() {
   let newImgIndex = imgIdx.value - 1
 
   if (newImgIndex < 0) {
-    // move back one category
     newCatIndex = (catIdx.value - 1 + categories.length) % categories.length
     newImgIndex = categories[newCatIndex].count - 1
   }
@@ -161,7 +153,7 @@ async function prev() {
   }
 }
 
-/* autoplay */
+// autoplay
 const autoplay = ref(false)
 let timer: number | null = null
 
@@ -186,14 +178,13 @@ onUnmounted(stopTimer)
 </script>
 
 <style scoped>
-/* hardware-acceleration for images */
 .image-accel {
   will-change: opacity, transform;
   backface-visibility: hidden;
   transform: translateZ(0);
 }
 
-/* cross-fade transition for main image ------------------------------------ */
+/* cross-fade transition for the combined container */
 .xfade-enter-active,
 .xfade-leave-active {
   transition: opacity 1.5s ease, filter 1.5s ease;
@@ -207,20 +198,6 @@ onUnmounted(stopTimer)
 .xfade-leave-from {
   opacity: 1;
   filter: blur(0);
-}
-
-/* cross-fade for blurred background (mobile only) ------------------------- */
-.bgfade-enter-active,
-.bgfade-leave-active {
-  transition: opacity 1.5s ease;
-}
-.bgfade-enter-from,
-.bgfade-leave-to {
-  opacity: 0;
-}
-.bgfade-enter-to,
-.bgfade-leave-from {
-  opacity: 1;
 }
 
 /* navigation buttons ------------------------------------------------------ */
@@ -276,8 +253,8 @@ onUnmounted(stopTimer)
   height: auto;
   width: auto;
   transition: background 0.15s ease;
-  z-index: 30;          /* ensures button is above the slideshow image */
-  pointer-events: auto; /* ensures it's clickable */
+  z-index: 30;
+  pointer-events: auto;
 }
 .nav-play:hover {
   background: rgba(0, 0, 0, 0.5);

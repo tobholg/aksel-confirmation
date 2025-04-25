@@ -1,30 +1,36 @@
 <template>
   <!-- full-screen slideshow -->
   <div class="relative h-screen w-screen overflow-hidden bg-black">
-    <!-- blurred background (phone only) -->
-    <transition name="bgfade">
-      <img
-        v-if="displayedSrc"
-        :key="displayedSrc + '-blur'"
-        :src="displayedSrc"
-        class="absolute inset-0 w-full h-full object-cover blur-md md:hidden select-none z-0 image-accel"
-        alt="Slideshow blurred background"
-      />
-    </transition>
 
-    <!-- main slideshow image -->
-    <transition name="xfade">
-      <img
-        v-if="displayedSrc"
-        :key="displayedSrc"
-        :src="displayedSrc"
-        class="absolute inset-0 w-full h-full object-contain md:object-cover md:object-center select-none z-10 image-accel"
-        alt="Slideshow image"
-      />
-    </transition>
+    <!-- unified crossfade of blurred background + main image -->
+    <transition-group
+      name="xfade"
+      tag="div"
+      class="absolute inset-0 w-full h-full z-10"
+      @leave="onMainLeave"
+    >
+      <div
+        v-for="slide in slides"
+        :key="slide.id"
+        class="absolute inset-0 w-full h-full"
+      >
+        <!-- blurred background (phone only) -->
+        <img
+          class="absolute inset-0 w-full h-full object-cover blur-md image-accel md:hidden"
+          :src="slide.src"
+          alt="Slideshow blurred background"
+        />
+        <!-- main slideshow image -->
+        <img
+          class="absolute inset-0 w-full h-full object-contain md:object-cover md:object-center select-none image-accel"
+          :src="slide.src"
+          alt="Slideshow image"
+        />
+      </div>
+    </transition-group>
 
     <!-- headline & sub-text -->
-    <div class="pointer-events-none fixed bottom-4 left-4 lg:bottom-8 lg:left-8 z-10 text-white">
+    <div class="pointer-events-none fixed bottom-4 left-4 lg:bottom-8 lg:left-8 z-20 text-white">
       <h1 class="font-semibold text-4xl md:text-7xl leading-none">
         {{ label }}
       </h1>
@@ -34,10 +40,16 @@
     </div>
 
     <!-- navigation buttons -->
-    <button class="nav-btn nav-prev text-xs sm:text-base backdrop-blur-sm" @click="prev">
+    <button
+      class="nav-btn nav-prev text-xs sm:text-base backdrop-blur-sm"
+      @click="prev"
+    >
       Forrige
     </button>
-    <button class="nav-btn nav-next text-xs sm:text-base backdrop-blur-sm" @click="next">
+    <button
+      class="nav-btn nav-next text-xs sm:text-base backdrop-blur-sm"
+      @click="next"
+    >
       Neste
     </button>
 
@@ -53,95 +65,119 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
-
-/* --- static copy --------------------------------------------------------- */
-const label   = 'Aksel T. Follett'
-const subtext = 'Vi er stolte av vår konfirmant!'
-
-/* --- total images -------------------------------------------------------- */
-const COUNT = 40 // e.g. aksel_1.jpg … aksel_40.jpg
+import { ref, watch, onUnmounted } from 'vue'
 
 /**
- * displayedSrc = what's currently visible on screen
- * nextSrc = next image path to preload before showing
+ * Static label and subtext:
  */
-const displayedSrc = ref<string | null>(null)
-const imgIdx = ref(0)
+const label = 'Aksel T. Follett'
+const subtext = 'Vi er stolte av vår konfirmant!'
 
-/* --- utility: preload an image ------------------------------------------ */
-async function preloadImage (src: string) {
-  return new Promise<void>((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => resolve()
-    image.onerror = reject
-    image.src = src
+/** 
+ *  We have 40 images: /aksel/aksel_1.jpg … /aksel/aksel_40.jpg 
+ */
+const COUNT = 40
+
+/**
+ * For the crossfade approach, each slide is an object:
+ *   { id: number, src: string }
+ */
+interface Slide {
+  id: number
+  src: string
+}
+
+const slides = ref<Slide[]>([])
+
+/** 
+ * We'll store our current index in `imgIdx`.
+ */
+let imgIdx = 0
+let slideIdCounter = 1
+
+/** Utility to build the image path for a given index: */
+function buildSrc(index: number) {
+  return `/aksel/aksel_${index + 1}.jpg`
+}
+
+/**
+ * Preload an image so it's fully loaded before we show it.
+ */
+function preloadImage(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const i = new Image()
+    i.onload = () => resolve()
+    i.onerror = reject
+    i.src = src
   })
 }
 
-/**
- * Initialize the first loaded image on mount.
- * We preload akse_1.jpg so we don't see a blank/flicker initially.
+/** 
+ * Add a new slide to the array (for crossfade).
+ * We'll keep the old slide(s) around until the transition finishes,
+ * which is handled in onMainLeave below.
  */
-(async () => {
-  const first = `/aksel/aksel_${imgIdx.value + 1}.jpg`
-  await preloadImage(first).catch(() => {})
-  displayedSrc.value = first
-})()
-
-/* --- helpers to get next/prev index -------------------------------------- */
-function getNextIndex () {
-  return (imgIdx.value + 1) % COUNT
-}
-function getPrevIndex () {
-  return (imgIdx.value - 1 + COUNT) % COUNT
-}
-
-/* --- navigation ---------------------------------------------------------- */
-async function next () {
-  const newIndex = getNextIndex()
-  const newSrc = `/aksel/aksel_${newIndex + 1}.jpg`
+async function showSlide(index: number) {
+  const src = buildSrc(index)
   try {
-    await preloadImage(newSrc)
-    imgIdx.value = newIndex
-    displayedSrc.value = newSrc
-  } catch (e) {
-    console.error('Failed to load next image:', e)
+    await preloadImage(src)
+    slides.value.push({
+      id: ++slideIdCounter,
+      src
+    })
+  } catch (err) {
+    console.error('Failed to load image:', err)
   }
 }
 
-async function prev () {
-  const newIndex = getPrevIndex()
-  const newSrc = `/aksel/aksel_${newIndex + 1}.jpg`
-  try {
-    await preloadImage(newSrc)
-    imgIdx.value = newIndex
-    displayedSrc.value = newSrc
-  } catch (e) {
-    console.error('Failed to load prev image:', e)
+/**
+ * Called for each leaving element in our transition-group.
+ * After the fade-out completes, remove the old slide from the array,
+ * ensuring the user sees a perfect crossfade with no flicker.
+ */
+function onMainLeave(el: Element) {
+  if (slides.value.length > 1) {
+    slides.value.shift()
   }
 }
 
-/* --- autoplay ------------------------------------------------------------ */
+/** 
+ * Initialize by showing the first image. 
+ */
+showSlide(imgIdx)
+
+/** 
+ * Next & Prev
+ */
+async function next() {
+  imgIdx = (imgIdx + 1) % COUNT
+  await showSlide(imgIdx)
+}
+async function prev() {
+  imgIdx = (imgIdx - 1 + COUNT) % COUNT
+  await showSlide(imgIdx)
+}
+
+/**
+ * Autoplay 
+ */
 const autoplay = ref(false)
 let timer: number | null = null
 
-function startTimer () {
-  timer = window.setInterval(() => {
-    next()
-  }, 5000)
+function startTimer() {
+  timer = window.setInterval(next, 5000)
 }
-function stopTimer () {
+function stopTimer() {
   if (timer !== null) {
     clearInterval(timer)
     timer = null
   }
 }
-function togglePlay () {
+function togglePlay() {
   autoplay.value = !autoplay.value
 }
 
-watch(autoplay, (playing) => {
+watch(autoplay, playing => {
   playing ? startTimer() : stopTimer()
 })
 
@@ -156,10 +192,11 @@ onUnmounted(stopTimer)
   transform: translateZ(0);
 }
 
-/* cross-fade transition for main image ------------------------------------ */
+/* single crossfade transition for both blurred bg + main image */
 .xfade-enter-active,
 .xfade-leave-active {
   transition: opacity 1.5s ease, filter 1.5s ease;
+  position: absolute;
 }
 .xfade-enter-from,
 .xfade-leave-to {
@@ -172,24 +209,10 @@ onUnmounted(stopTimer)
   filter: blur(0);
 }
 
-/* simple cross-fade for blurred background (opacity only) ----------------- */
-.bgfade-enter-active,
-.bgfade-leave-active {
-  transition: opacity 1.5s ease;
-}
-.bgfade-enter-from,
-.bgfade-leave-to {
-  opacity: 0;
-}
-.bgfade-enter-to,
-.bgfade-leave-from {
-  opacity: 1;
-}
-
 /* navigation buttons ------------------------------------------------------ */
 .nav-btn {
   position: fixed;
-  z-index: 20;
+  z-index: 30;
   padding: 0.5rem 1rem;
   font-weight: 600;
   color: #fff;
@@ -201,8 +224,6 @@ onUnmounted(stopTimer)
 .nav-btn:hover {
   background: rgba(0, 0, 0, 0.5);
 }
-
-/* prev / next (vertically centered) */
 .nav-prev,
 .nav-next {
   top: 50%;
@@ -228,7 +249,7 @@ onUnmounted(stopTimer)
   position: fixed !important;
   bottom: 1rem;
   right: 1rem;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   font-weight: 600;
   line-height: 1;
   color: #fff;
@@ -237,11 +258,9 @@ onUnmounted(stopTimer)
   backdrop-filter: blur(4px);
   white-space: nowrap;
   display: inline-block;
-  height: auto;
-  width: auto;
   transition: background 0.15s ease;
-  z-index: 30;          /* ensures button is above the slideshow image */
-  pointer-events: auto; /* ensures it's clickable */
+  z-index: 40;          
+  pointer-events: auto;
 }
 .nav-play:hover {
   background: rgba(0, 0, 0, 0.5);

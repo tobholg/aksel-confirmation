@@ -11,7 +11,7 @@
 
       <!-- menu button -->
       <button
-        class="absolute left-4 font-semibold text-sm sm:text-base px-5 py-1.5 backdrop-blur-sm bg-black/30 hover:bg-black/40 rounded-lg transition text-white"
+        class="absolute left-4 font-semibold text-sm sm:text-base px-4 py-1.5 backdrop-blur-sm bg-black/30 hover:bg-black/40 rounded-lg transition text-white"
         aria-label="Åpne / lukk meny"
         @click="toggle"
       >
