@@ -8,11 +8,11 @@
         :key="displayedSrc"
         class="absolute inset-0 w-full h-full z-10"
       >
-        <!-- blurred background (phone only) -->
+        <!-- background (phone only) WITH blur -->
         <img
-          class="absolute inset-0 w-full h-full object-cover blur-md md:hidden select-none image-accel"
+          class="absolute inset-0 w-full h-full object-cover md:hidden select-none image-accel blur-md"
           :src="displayedSrc"
-          alt="Slideshow blurred background"
+          alt="Slideshow background"
         />
 
         <!-- main slideshow image (always present) -->
@@ -89,7 +89,7 @@ function getSrcFor(catIndex: number, imageIndex: number) {
   return `/${c.slug}/${c.slug}_${imageIndex + 1}.jpg`
 }
 
-function preloadImage (src: string) {
+function preloadImage(src: string) {
   return new Promise<void>((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve()
@@ -103,7 +103,7 @@ function preloadImage (src: string) {
   const startSrc = getSrcFor(catIdx.value, imgIdx.value)
   try {
     await preloadImage(startSrc)
-  } catch(e) {
+  } catch (e) {
     console.error('Failed to load initial image:', e)
   }
   displayedSrc.value = startSrc
@@ -170,7 +170,7 @@ function togglePlay() {
   autoplay.value = !autoplay.value
 }
 
-watch(autoplay, playing => {
+watch(autoplay, (playing) => {
   playing ? startTimer() : stopTimer()
 })
 
@@ -184,20 +184,18 @@ onUnmounted(stopTimer)
   transform: translateZ(0);
 }
 
-/* cross-fade transition for the combined container */
+/* simple fade transition for the combined container */
 .xfade-enter-active,
 .xfade-leave-active {
-  transition: opacity 1.5s ease, filter 1.5s ease;
+  transition: opacity 1.5s ease;
 }
 .xfade-enter-from,
 .xfade-leave-to {
   opacity: 0;
-  filter: blur(10px);
 }
 .xfade-enter-to,
 .xfade-leave-from {
   opacity: 1;
-  filter: blur(0);
 }
 
 /* navigation buttons ------------------------------------------------------ */

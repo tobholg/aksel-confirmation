@@ -67,21 +67,14 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue'
 
-/**
- * Static label and subtext:
- */
+/** Static label and subtext: */
 const label = 'Aksel T. Follett'
 const subtext = 'Vi er stolte av vår konfirmant!'
 
-/** 
- *  We have 40 images: /aksel/aksel_1.jpg … /aksel/aksel_40.jpg 
- */
+/** We have 40 images: /aksel/aksel_1.jpg … /aksel/aksel_40.jpg  */
 const COUNT = 40
 
-/**
- * For the crossfade approach, each slide is an object:
- *   { id: number, src: string }
- */
+/** Each slide is an object: { id: number, src: string } */
 interface Slide {
   id: number
   src: string
@@ -89,20 +82,16 @@ interface Slide {
 
 const slides = ref<Slide[]>([])
 
-/** 
- * We'll store our current index in `imgIdx`.
- */
+/** We'll store our current index in `imgIdx`. */
 let imgIdx = 0
 let slideIdCounter = 1
 
-/** Utility to build the image path for a given index: */
+/** Build the image path for a given index: */
 function buildSrc(index: number) {
   return `/aksel/aksel_${index + 1}.jpg`
 }
 
-/**
- * Preload an image so it's fully loaded before we show it.
- */
+/** Preload an image before showing it. */
 function preloadImage(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const i = new Image()
@@ -112,43 +101,31 @@ function preloadImage(src: string): Promise<void> {
   })
 }
 
-/** 
- * Add a new slide to the array (for crossfade).
- * We'll keep the old slide(s) around until the transition finishes,
- * which is handled in onMainLeave below.
- */
+/** Add a new slide (for crossfade). Remove the old slide on transition end. */
 async function showSlide(index: number) {
   const src = buildSrc(index)
   try {
     await preloadImage(src)
     slides.value.push({
       id: ++slideIdCounter,
-      src
+      src,
     })
   } catch (err) {
     console.error('Failed to load image:', err)
   }
 }
 
-/**
- * Called for each leaving element in our transition-group.
- * After the fade-out completes, remove the old slide from the array,
- * ensuring the user sees a perfect crossfade with no flicker.
- */
+/** Called for each leaving element in our transition-group. */
 function onMainLeave(el: Element) {
   if (slides.value.length > 1) {
     slides.value.shift()
   }
 }
 
-/** 
- * Initialize by showing the first image. 
- */
+/** Initialize by showing the first image. */
 showSlide(imgIdx)
 
-/** 
- * Next & Prev
- */
+/** Next & Prev */
 async function next() {
   imgIdx = (imgIdx + 1) % COUNT
   await showSlide(imgIdx)
@@ -158,9 +135,7 @@ async function prev() {
   await showSlide(imgIdx)
 }
 
-/**
- * Autoplay 
- */
+/** Autoplay */
 const autoplay = ref(false)
 let timer: number | null = null
 
@@ -177,7 +152,7 @@ function togglePlay() {
   autoplay.value = !autoplay.value
 }
 
-watch(autoplay, playing => {
+watch(autoplay, (playing) => {
   playing ? startTimer() : stopTimer()
 })
 
@@ -192,21 +167,20 @@ onUnmounted(stopTimer)
   transform: translateZ(0);
 }
 
-/* single crossfade transition for both blurred bg + main image */
+/* single crossfade transition for both blurred bg + main image,
+   but with no animated blur—only opacity */
 .xfade-enter-active,
 .xfade-leave-active {
-  transition: opacity 1.5s ease, filter 1.5s ease;
+  transition: opacity 1.5s ease;
   position: absolute;
 }
 .xfade-enter-from,
 .xfade-leave-to {
   opacity: 0;
-  filter: blur(10px);
 }
 .xfade-enter-to,
 .xfade-leave-from {
   opacity: 1;
-  filter: blur(0);
 }
 
 /* navigation buttons ------------------------------------------------------ */
@@ -259,7 +233,7 @@ onUnmounted(stopTimer)
   white-space: nowrap;
   display: inline-block;
   transition: background 0.15s ease;
-  z-index: 40;          
+  z-index: 40;
   pointer-events: auto;
 }
 .nav-play:hover {
