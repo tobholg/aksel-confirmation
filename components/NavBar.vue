@@ -43,6 +43,17 @@
               Hjem
             </NuxtLink>
           </li>
+          
+          <li>
+            <NuxtLink
+              to="/festen"
+              class="text-xl md:text-2xl font-semibold text-white hover:text-neutral-400 transition"
+              @click="close"
+            >
+              Festen
+            </NuxtLink>
+          </li>
+          
           <li>
             <NuxtLink
               to="/toppturer"
@@ -63,9 +74,9 @@
             </NuxtLink>
           </li>
 
-          <li>
+          <li v-if="false">
             <NuxtLink
-              to="/hmm"
+              to="/"
               class="text-xl md:text-2xl font-semibold text-white hover:text-neutral-400 transition"
               @click="close"
             >
